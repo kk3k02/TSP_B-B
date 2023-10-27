@@ -80,6 +80,7 @@ class Tsp:
         total_distance += self.cost[path[-1]][path[0]]
         return total_distance
 
+    @profile(precision=4)
     def solve(self):
         if self.n <= 2:
             return list(range(self.n)), 0
@@ -107,7 +108,6 @@ class Tsp:
                 self._tsp_branch_and_bound(new_path, new_remaining, current_distance + self.cost[path[-1]][next_vertex])
 
 
-@profile(precision=4)
 def main():
     times = []
     cost = 0
