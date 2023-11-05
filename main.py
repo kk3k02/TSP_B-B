@@ -1,8 +1,6 @@
 import csv
-import itertools
 import time
-from memory_profiler import profile
-
+import sys
 
 class ReadINI:
     def __init__(self, file_path):
@@ -21,7 +19,6 @@ class ReadINI:
                     repeats.append(repeat)
         return file_names, repeats
 
-
 class ReadFile:
     def __init__(self, file_path):
         self.file_path = file_path
@@ -36,7 +33,6 @@ class ReadFile:
                 cost_list.append(distance)
         return cost_list
 
-
 class TimeStamp:
     def __init__(self):
         self.start_time = 0
@@ -49,7 +45,6 @@ class TimeStamp:
         self.end_time = time.time()
         exec_time = self.end_time - self.start_time
         return exec_time
-
 
 class SaveToFile:
     def __init__(self, file_name, repeats, cost, path, times):
@@ -67,12 +62,11 @@ class SaveToFile:
             writer.writerow([self.file_name, self.repeats, self.cost, path_without_spaces])
             writer.writerows([[str(time)] for time in self.times])
 
-
 class Tsp:
     def __init__(self, n, cost):
         self.n = n
         self.cost = cost
-        self.min_dist = float('inf')
+        self.min_dist = sys.maxsize
         self.best_path = None
 
     def calculate_total_distance(self, path):
@@ -80,7 +74,6 @@ class Tsp:
         total_distance += self.cost[path[-1]][path[0]]
         return total_distance
 
-    @profile(precision=4)
     def solve(self):
         if self.n <= 2:
             return list(range(self.n)), 0
@@ -89,11 +82,29 @@ class Tsp:
         start_vertex = 0  # Start from vertex 0
         path = [start_vertex]
         remaining_vertices = vertices[:start_vertex] + vertices[start_vertex + 1:]
-        self._tsp_branch_and_bound(path, remaining_vertices, 0)
+        lower_bound = self._calculate_lower_bound(path, remaining_vertices)
+
+        self._tsp_branch_and_bound(path, remaining_vertices, 0, lower_bound)
 
         return int(self.min_dist), self.best_path
 
-    def _tsp_branch_and_bound(self, path, remaining_vertices, current_distance):
+    def _calculate_lower_bound(self, path, remaining_vertices):
+        lower_bound = 0
+        # Add lower bound for the partial path
+        for i in range(len(path) - 1):
+            lower_bound += self.cost[path[i]][path[i + 1]]
+        # Add lower bound for the nearest neighbor to the unvisited vertices
+        if remaining_vertices:
+            for vertex in remaining_vertices:
+                costs = [int(self.cost[vertex][v]) for v in remaining_vertices if v != vertex]
+                if costs:
+                    min_cost = min(costs)
+                else:
+                    min_cost = 0
+                lower_bound += min_cost
+        return lower_bound
+
+    def _tsp_branch_and_bound(self, path, remaining_vertices, current_distance, lower_bound):
         if not remaining_vertices:
             current_distance += self.cost[path[-1]][path[0]]
             if current_distance < self.min_dist:
@@ -105,8 +116,9 @@ class Tsp:
             if current_distance + self.cost[path[-1]][next_vertex] < self.min_dist:
                 new_path = path + [next_vertex]
                 new_remaining = [v for v in remaining_vertices if v != next_vertex]
-                self._tsp_branch_and_bound(new_path, new_remaining, current_distance + self.cost[path[-1]][next_vertex])
-
+                new_lower_bound = self._calculate_lower_bound(new_path, new_remaining)
+                if new_lower_bound < self.min_dist:
+                    self._tsp_branch_and_bound(new_path, new_remaining, current_distance + self.cost[path[-1]][next_vertex], new_lower_bound)
 
 def main():
     times = []
@@ -133,7 +145,6 @@ def main():
         save_file.save()
 
         times = []
-
 
 if __name__ == "__main__":
     main()
